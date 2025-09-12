@@ -12,7 +12,7 @@ const MANAGER_TOKEN = process.env.MANAGER_TOKEN;
 const PORT = process.env.PORT || 3000;
 const INSTANCES_DIR = path.join(__dirname, 'instances');
 const LOGS_DIR = path.join(__dirname, 'logs');
-const REPO_URL = 'https://github.com/Danscot/senku-xmd';
+const REPO_URL = 'https://github.com/afrinode-dev/tele-bot';
 
 // Vérification du token
 if (!MANAGER_TOKEN) {
