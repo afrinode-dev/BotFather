@@ -1,0 +1,38 @@
+{
+  "name": "senku-botfather-custom",
+  "version": "1.0.0",
+  "description": "BotFather custom pour déployer et gérer des instances de Senku",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "setup": "npm install && mkdir -p instances logs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "manager",
+    "senku",
+    "deployment"
+  ],
+  "author": "Votre nom",
+  "license": "MIT",
+  "dependencies": {
+    "telegraf": "^4.16.3",
+    "axios": "^1.7.2",
+    "sqlite3": "^5.1.7",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Danscot/senku-xmd"
+  }
+}
