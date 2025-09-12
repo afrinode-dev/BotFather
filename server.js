@@ -47,7 +47,7 @@ bot.use(session());
 // Serveur web pour Render
 const app = express();
 app.get('/', (req, res) => {
-  res.send('🤖 BotFather Custom pour Senku est en ligne!');
+  res.send('🤖 BotFather est en ligne!');
 });
 app.listen(PORT, () => {
   console.log(`🚀 Serveur web démarré sur le port ${PORT}`);
@@ -307,7 +307,7 @@ bot.command('start', async (ctx) => {
   
   try {
     await ctx.replyWithPhoto(
-      { url: 'https://raw.githubusercontent.com/Danscot/senku-xmd/main/assets/senku-banner.jpg' },
+      { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png' },
       { 
         caption: welcomeText, 
         parse_mode: 'Markdown',
@@ -408,7 +408,7 @@ bot.command('menu', (ctx) => {
   ]);
   
   ctx.replyWithPhoto(
-    { url: 'https://raw.githubusercontent.com/Danscot/senku-xmd/main/assets/senku-menu.jpg' },
+    { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png' },
     { caption: menuText, reply_markup: keyboard.reply_markup }
   ).catch(async () => {
     // Fallback si l'image ne charge pas
@@ -421,9 +421,9 @@ bot.action('main_menu', async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.deleteMessage();
   await ctx.replyWithPhoto(
-    { url: 'https://raw.githubusercontent.com/Danscot/senku-xmd/main/assets/senku-banner.jpg' },
+    { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png'},
     { 
-      caption: '🤖 *BotFather Custom pour Senku* 🤖\n\nQue souhaitez-vous faire?',
+      caption: '🤖 *BotFather* 🤖\n\nQue souhaitez-vous faire?',
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
@@ -435,7 +435,7 @@ bot.action('main_menu', async (ctx) => {
       }
     }
   ).catch(async () => {
-    await ctx.reply('🤖 *BotFather Custom pour Senku* 🤖\n\nQue souhaitez-vous faire?', {
+    await ctx.reply('🤖 *BotFather* 🤖\n\nQue souhaitez-vous faire?', {
       parse_mode: 'Markdown',
       reply_markup: {
         inline_keyboard: [
@@ -563,7 +563,7 @@ bot.catch((err, ctx) => {
 
 // Démarrer le bot manager
 bot.launch().then(() => {
-  console.log('🤖 BotFather Custom démarré avec succès!');
+  console.log('🤖 BotFather démarré avec succès!');
 }).catch(err => {
   console.error('❌ Erreur au démarrage du bot:', err);
 });
