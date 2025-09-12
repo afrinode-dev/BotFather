@@ -197,8 +197,8 @@ async function getBotStatus(botId, ctx) {
 
 // Commandes du bot
 bot.command('start', async (ctx) => {
-  const welcomeText = `🤖 *BotFather Custom pour Senku* 🤖\n\n` +
-    `Je peux vous aider à déployer et gérer vos instances de Senku.\n\n` +
+  const welcomeText = `🤖 *BotFather Custom* 🤖\n\n` +
+    `Je peux vous aider à déployer et gérer vos instances.\n\n` +
     `Commandes disponibles:\n` +
     `/newbot <token> - Déployer une nouvelle instance\n` +
     `/mybots - Lister vos bots déployés\n` +
@@ -207,7 +207,7 @@ bot.command('start', async (ctx) => {
     `/menu - Afficher le menu interactif`;
   
   await ctx.replyWithPhoto(
-    { url: 'https://raw.githubusercontent.com/Danscot/senku-xmd/main/assets/senku-banner.jpg' },
+    { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png' },
     { caption: welcomeText, parse_mode: 'Markdown' }
   );
 });
