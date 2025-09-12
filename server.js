@@ -1,4 +1,4 @@
-// server.js - BotFather Custom Amélioré
+// server.js - BotFather Custom Corrigé
 const { Telegraf, Markup, session } = require('telegraf');
 const fs = require('fs-extra');
 const path = require('path');
@@ -95,7 +95,7 @@ async function createNewBot(token, ctx) {
     await ctx.reply('🔄 Début du déploiement...');
 
     // Cloner le repo
-    await ctx.reply('📥 Clonage du repository Senku...');
+    await ctx.reply('📥 Clonage du repository...');
     try {
       await new Promise((resolve, reject) => {
         exec(`git clone --depth 1 ${REPO_URL} ${botFolder}`, (error, stdout, stderr) => {
@@ -126,7 +126,7 @@ async function createNewBot(token, ctx) {
     }
 
     // Démarrer le bot
-    await ctx.reply('🚀 Démarrage de l\'instance Senku...');
+    await ctx.reply('🚀 Démarrage de l\'instance...');
     const logFile = path.join(LOGS_DIR, `${botName}.log`);
     await fs.ensureDir(path.dirname(logFile));
     
@@ -293,10 +293,31 @@ async function getBotStatus(botId, ctx) {
   });
 }
 
+// Fonction pour éditer un message avec gestion des erreurs
+async function safeEditMessage(ctx, text, keyboard = null) {
+  try {
+    if (ctx.updateType === 'callback_query') {
+      // Vérifier si le message a une photo
+      if (ctx.callbackQuery.message.photo) {
+        // Supprimer le message avec photo et en créer un nouveau avec du texte
+        await ctx.deleteMessage();
+        return await ctx.reply(text, keyboard ? Markup.inlineKeyboard(keyboard) : undefined);
+      } else {
+        // Modifier le message texte normal
+        return await ctx.editMessageText(text, keyboard ? Markup.inlineKeyboard(keyboard) : undefined);
+      }
+    }
+  } catch (error) {
+    console.error('Erreur lors de l\'édition du message:', error.message);
+    // En cas d'erreur, envoyer un nouveau message
+    return await ctx.reply(text, keyboard ? Markup.inlineKeyboard(keyboard) : undefined);
+  }
+}
+
 // Commandes du bot
 bot.command('start', async (ctx) => {
-  const welcomeText = `🤖 *BotFather Custom pour Senku* 🤖\n\n` +
-    `Je peux vous aider à déployer et gérer vos instances de Senku automatiquement.\n\n` +
+  const welcomeText = `🤖 *BotFather* 🤖\n\n` +
+    `Je peux vous aider à déployer et gérer vos instances automatiquement.\n\n` +
     `*Commandes disponibles:*\n` +
     `/newbot <token> - Déployer une nouvelle instance\n` +
     `/mybots - Lister vos bots déployés\n` +
@@ -358,7 +379,7 @@ bot.command('mybots', async (ctx) => {
     
     await ctx.reply(result.message, Markup.inlineKeyboard(buttons));
   } else {
-    ctx.reply(result.message, Markup.inlineKeyboard([
+    await ctx.reply(result.message, Markup.inlineKeyboard([
       [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
       [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
     ]));
@@ -398,7 +419,7 @@ bot.command('status', async (ctx) => {
   ctx.reply(result.message);
 });
 
-bot.command('menu', (ctx) => {
+bot.command('menu', async (ctx) => {
   const menuText = '🎮 Menu de gestion des bots Senku';
   const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
@@ -407,58 +428,45 @@ bot.command('menu', (ctx) => {
     [Markup.button.callback('🛑 Arrêter un bot', 'stop_bot_menu')]
   ]);
   
-  ctx.replyWithPhoto(
-    { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png' },
-    { caption: menuText, reply_markup: keyboard.reply_markup }
-  ).catch(async () => {
+  try {
+    await ctx.replyWithPhoto(
+      { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png' },
+      { caption: menuText, reply_markup: keyboard.reply_markup }
+    );
+  } catch (error) {
     // Fallback si l'image ne charge pas
     await ctx.reply(menuText, { reply_markup: keyboard.reply_markup });
-  });
+  }
 });
 
 // Gestion des actions de boutons
 bot.action('main_menu', async (ctx) => {
   await ctx.answerCbQuery();
   await ctx.deleteMessage();
-  await ctx.replyWithPhoto(
-    { url: 'https://raw.githubusercontent.com/afrinode-dev/BotFather/refs/heads/main/bot.png'},
-    { 
-      caption: '🤖 *BotFather* 🤖\n\nQue souhaitez-vous faire?',
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '➕ Déployer un bot', callback_data: 'deploy_bot' }],
-          [{ text: '📋 Voir mes bots', callback_data: 'list_bots' }],
-          [{ text: '🔄 Redémarrer un bot', callback_data: 'restart_bot_menu' }],
-          [{ text: '🛑 Arrêter un bot', callback_data: 'stop_bot_menu' }]
-        ]
-      }
-    }
-  ).catch(async () => {
-    await ctx.reply('🤖 *BotFather* 🤖\n\nQue souhaitez-vous faire?', {
-      parse_mode: 'Markdown',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '➕ Déployer un bot', callback_data: 'deploy_bot' }],
-          [{ text: '📋 Voir mes bots', callback_data: 'list_bots' }],
-          [{ text: '🔄 Redémarrer un bot', callback_data: 'restart_bot_menu' }],
-          [{ text: '🛑 Arrêter un bot', callback_data: 'stop_bot_menu' }]
-        ]
-      }
-    });
+  
+  const menuText = '🤖 *BotFather* 🤖\n\nQue souhaitez-vous faire?';
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
+    [Markup.button.callback('📋 Voir mes bots', 'list_bots')],
+    [Markup.button.callback('🔄 Redémarrer un bot', 'restart_bot_menu')],
+    [Markup.button.callback('🛑 Arrêter un bot', 'stop_bot_menu')]
+  ]);
+  
+  await ctx.reply(menuText, { 
+    parse_mode: 'Markdown',
+    reply_markup: keyboard.reply_markup 
   });
 });
 
 bot.action('deploy_bot', async (ctx) => {
   await ctx.answerCbQuery();
-  await ctx.editMessageText('Pour déployer un nouveau bot, envoyez la commande /newbot suivie de votre token.\n\nExemple:\n<code>/newbot 1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ</code>\n\nAssurez-vous que le token est valide et que le bot a été créé via @BotFather.', {
-    parse_mode: 'HTML',
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: '🔙 Retour au menu', callback_data: 'main_menu' }]
-      ]
-    }
-  });
+  
+  const messageText = 'Pour déployer un nouveau bot, envoyez la commande /newbot suivie de votre token.\n\nExemple:\n<code>/newbot 1234567890:ABCDEFGHIJKLMNOPQRSTUVWXYZ</code>\n\nAssurez-vous que le token est valide et que le bot a été créé via @BotFather.';
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
+  ]);
+  
+  await safeEditMessage(ctx, messageText, keyboard);
 });
 
 bot.action('list_bots', async (ctx) => {
@@ -472,12 +480,14 @@ bot.action('list_bots', async (ctx) => {
     
     buttons.push([Markup.button.callback('🔙 Retour au menu', 'main_menu')]);
     
-    await ctx.editMessageCaption(result.message, Markup.inlineKeyboard(buttons));
+    await safeEditMessage(ctx, result.message, buttons);
   } else {
-    await ctx.editMessageCaption(result.message, Markup.inlineKeyboard([
+    const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
       [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
-    ]));
+    ]);
+    
+    await safeEditMessage(ctx, result.message, keyboard);
   }
 });
 
@@ -492,12 +502,14 @@ bot.action('restart_bot_menu', async (ctx) => {
     
     buttons.push([Markup.button.callback('🔙 Retour au menu', 'main_menu')]);
     
-    await ctx.editMessageCaption('🔄 Sélectionnez le bot à redémarrer:', Markup.inlineKeyboard(buttons));
+    await safeEditMessage(ctx, '🔄 Sélectionnez le bot à redémarrer:', buttons);
   } else {
-    await ctx.editMessageCaption('📭 Aucun bot à redémarrer.', Markup.inlineKeyboard([
+    const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
       [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
-    ]));
+    ]);
+    
+    await safeEditMessage(ctx, '📭 Aucun bot à redémarrer.', keyboard);
   }
 });
 
@@ -512,12 +524,14 @@ bot.action('stop_bot_menu', async (ctx) => {
     
     buttons.push([Markup.button.callback('🔙 Retour au menu', 'main_menu')]);
     
-    await ctx.editMessageCaption('🛑 Sélectionnez le bot à arrêter:', Markup.inlineKeyboard(buttons));
+    await safeEditMessage(ctx, '🛑 Sélectionnez le bot à arrêter:', buttons);
   } else {
-    await ctx.editMessageCaption('📭 Aucun bot à arrêter.', Markup.inlineKeyboard([
+    const keyboard = Markup.inlineKeyboard([
       [Markup.button.callback('➕ Déployer un bot', 'deploy_bot')],
       [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
-    ]));
+    ]);
+    
+    await safeEditMessage(ctx, '📭 Aucun bot à arrêter.', keyboard);
   }
 });
 
@@ -526,11 +540,13 @@ bot.action(/bot_detail_(\d+)/, async (ctx) => {
   const botId = ctx.match[1];
   const result = await getBotStatus(botId, ctx);
   
-  await ctx.editMessageCaption(result.message, Markup.inlineKeyboard([
+  const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🔄 Redémarrer', `restart_${botId}`)],
     [Markup.button.callback('🛑 Arrêter', `stop_${botId}`)],
     [Markup.button.callback('🔙 Retour à la liste', 'list_bots')]
-  ]));
+  ]);
+  
+  await safeEditMessage(ctx, result.message, keyboard);
 });
 
 bot.action(/restart_(\d+)/, async (ctx) => {
@@ -538,10 +554,12 @@ bot.action(/restart_(\d+)/, async (ctx) => {
   const botId = ctx.match[1];
   const result = await restartBot(botId, ctx);
   
-  await ctx.editMessageCaption(result.message, Markup.inlineKeyboard([
+  const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('📋 Voir le statut', `bot_detail_${botId}`)],
     [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
-  ]));
+  ]);
+  
+  await safeEditMessage(ctx, result.message, keyboard);
 });
 
 bot.action(/stop_(\d+)/, async (ctx) => {
@@ -549,16 +567,22 @@ bot.action(/stop_(\d+)/, async (ctx) => {
   const botId = ctx.match[1];
   const result = await stopBot(botId, ctx);
   
-  await ctx.editMessageCaption(result.message, Markup.inlineKeyboard([
+  const keyboard = Markup.inlineKeyboard([
     [Markup.button.callback('🔄 Redémarrer', `restart_${botId}`)],
     [Markup.button.callback('🔙 Retour au menu', 'main_menu')]
-  ]));
+  ]);
+  
+  await safeEditMessage(ctx, result.message, keyboard);
 });
 
 // Gestion des erreurs
 bot.catch((err, ctx) => {
   console.error(`❌ Erreur pour ${ctx.updateType}:`, err);
-  ctx.reply('❌ Une erreur s\'est produite. Veuillez réessayer.').catch(() => {});
+  try {
+    ctx.reply('❌ Une erreur s\'est produite. Veuillez réessayer.').catch(() => {});
+  } catch (e) {
+    // Ignorer les erreurs de réponse
+  }
 });
 
 // Démarrer le bot manager
