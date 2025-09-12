@@ -1,4 +1,4 @@
-// server.js - BotFather Custom Corrigé
+// server.js
 const { Telegraf, Markup, session } = require('telegraf');
 const fs = require('fs-extra');
 const path = require('path');
@@ -34,7 +34,8 @@ db.serialize(() => {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     pid INTEGER,
     username TEXT,
-    first_name TEXT
+    first_name TEXT,
+    log_file TEXT
   )`);
 });
 
@@ -66,15 +67,64 @@ async function validateToken(token) {
   }
 }
 
-// Fonction pour créer un nouveau bot
+// Fonction pour exécuter une commande avec timeout et journalisation
+function executeCommand(command, args, options, logFile, timeout = 120000) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
+    const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+    
+    child.stdout.pipe(logStream);
+    child.stderr.pipe(logStream);
+    
+    let timeoutId = setTimeout(() => {
+      child.kill();
+      reject(new Error(`Timeout après ${timeout/1000} secondes`));
+    }, timeout);
+    
+    child.on('close', (code) => {
+      clearTimeout(timeoutId);
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`Processus terminé avec le code ${code}`));
+      }
+    });
+    
+    child.on('error', (err) => {
+      clearTimeout(timeoutId);
+      reject(err);
+    });
+  });
+}
+
+// Fonction pour créer un nouveau bot (version non bloquante)
 async function createNewBot(token, ctx) {
+  const message = await ctx.reply('🔄 Début du déploiement...');
+  const messageId = message.message_id;
+  const chatId = ctx.chat.id;
+  
+  // Démarrer le déploiement en arrière-plan
+  deployBotInBackground(token, chatId, messageId);
+  
+  return { success: true, message: 'Déploiement démarré en arrière-plan. Vous serez notifié à la fin.' };
+}
+
+// Fonction pour déployer un bot en arrière-plan
+async function deployBotInBackground(token, chatId, messageId) {
+  let botName = '';
+  let botFolder = '';
+  let logFile = '';
+  
   try {
+    // Mettre à jour le message de statut
+    await bot.telegram.editMessageText(chatId, messageId, null, '🔍 Validation du token...');
+    
     // Valider le token
     const botInfo = await validateToken(token);
     if (!botInfo) {
-      return { success: false, message: '❌ Token invalide. Veuillez vérifier et réessayer.' };
+      throw new Error('Token invalide');
     }
-
+    
     // Vérifier si le token existe déjà
     const existingBot = await new Promise((resolve) => {
       db.get('SELECT * FROM bots WHERE token = ?', [token], (err, row) => {
@@ -83,85 +133,101 @@ async function createNewBot(token, ctx) {
     });
 
     if (existingBot) {
-      return { success: false, message: '❌ Ce token est déjà utilisé par un autre bot.' };
+      throw new Error('Ce token est déjà utilisé');
     }
-
+    
     // Créer le dossier d'instance
-    const botName = `senku-${Date.now()}`;
-    const botFolder = path.join(INSTANCES_DIR, botName);
+    botName = `senku-${Date.now()}`;
+    botFolder = path.join(INSTANCES_DIR, botName);
     await fs.ensureDir(botFolder);
-
-    // Message de progression
-    await ctx.reply('🔄 Début du déploiement...');
-
-    // Cloner le repo
-    await ctx.reply('📥 Clonage du repository...');
-    try {
-      await new Promise((resolve, reject) => {
-        exec(`git clone --depth 1 ${REPO_URL} ${botFolder}`, (error, stdout, stderr) => {
-          if (error) reject(error);
-          else resolve();
-        });
-      });
-    } catch (error) {
-      return { success: false, message: '❌ Erreur lors du clonage: ' + error.message };
-    }
-
-    // Créer le fichier .env
-    await ctx.reply('⚙️ Configuration de l\'environnement...');
-    const envContent = `BOT_TOKEN=${token}\nNODE_ENV=production\n`;
-    await fs.writeFile(path.join(botFolder, '.env'), envContent);
-
-    // Installer les dépendances
-    await ctx.reply('📦 Installation des dépendances...');
-    try {
-      await new Promise((resolve, reject) => {
-        exec('npm install --production', { cwd: botFolder }, (error, stdout, stderr) => {
-          if (error) reject(error);
-          else resolve();
-        });
-      });
-    } catch (error) {
-      return { success: false, message: '❌ Erreur installation dépendances: ' + error.message };
-    }
-
-    // Démarrer le bot
-    await ctx.reply('🚀 Démarrage de l\'instance...');
-    const logFile = path.join(LOGS_DIR, `${botName}.log`);
+    
+    // Créer le fichier de log
+    logFile = path.join(LOGS_DIR, `${botName}.log`);
     await fs.ensureDir(path.dirname(logFile));
     
+    await bot.telegram.editMessageText(chatId, messageId, null, '📥 Clonage du repository...');
+    
+    // Cloner le repo avec timeout
+    await executeCommand('git', ['clone', '--depth', '1', REPO_URL, botFolder], {}, logFile, 180000);
+    
+    await bot.telegram.editMessageText(chatId, messageId, null, '⚙️ Configuration de l\'environnement...');
+    
+    // Créer le fichier .env
+    const envContent = `BOT_TOKEN=${token}\nNODE_ENV=production\n`;
+    await fs.writeFile(path.join(botFolder, '.env'), envContent);
+    
+    await bot.telegram.editMessageText(chatId, messageId, null, '📦 Installation des dépendances...');
+    
+    // Installer les dépendances avec timeout
+    await executeCommand('npm', ['install', '--production'], { cwd: botFolder }, logFile, 240000);
+    
+    await bot.telegram.editMessageText(chatId, messageId, null, '🚀 Démarrage de l\'instance...');
+    
+    // Démarrer le bot
     const child = spawn('npm', ['start'], {
       cwd: botFolder,
       env: { ...process.env, BOT_TOKEN: token },
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true
     });
-
+    
     // Rediriger les logs vers un fichier
     const logStream = fs.createWriteStream(logFile, { flags: 'a' });
     child.stdout.pipe(logStream);
     child.stderr.pipe(logStream);
-
+    
+    // Attendre un peu pour que le bot démarre
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    
+    // Vérifier que le bot fonctionne
+    const isRunning = await validateToken(token);
+    if (!isRunning) {
+      throw new Error('Le bot ne répond pas après le démarrage');
+    }
+    
     // Enregistrer le bot dans la base de données
-    return new Promise((resolve) => {
+    await new Promise((resolve, reject) => {
       db.run(
-        'INSERT INTO bots (name, token, folder, status, pid, username, first_name) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [botName, token, botFolder, 'running', child.pid, botInfo.username, botInfo.first_name],
+        'INSERT INTO bots (name, token, folder, status, pid, username, first_name, log_file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [botName, token, botFolder, 'running', child.pid, botInfo.username, botInfo.first_name, logFile],
         function(err) {
-          if (err) {
-            resolve({ success: false, message: '❌ Erreur base de données: ' + err.message });
-          } else {
-            resolve({ 
-              success: true, 
-              message: `✅ Bot ${botInfo.first_name} (@${botInfo.username}) déployé avec succès!\n\n📁 Dossier: ${botName}\n🆔 ID: ${this.lastID}`,
-              botId: this.lastID
-            });
-          }
+          if (err) reject(err);
+          else resolve();
         }
       );
     });
+    
+    // Message de succès
+    await bot.telegram.editMessageText(
+      chatId, 
+      messageId, 
+      null,
+      `✅ Bot ${botInfo.first_name} (@${botInfo.username}) déployé avec succès!\n\n📁 Dossier: ${botName}\n🆔 ID: ${this.lastID}`
+    );
+    
   } catch (error) {
-    return { success: false, message: '❌ Erreur: ' + error.message };
+    console.error('Erreur lors du déploiement:', error);
+    
+    // Nettoyer les fichiers en cas d'erreur
+    if (botFolder && await fs.pathExists(botFolder)) {
+      await fs.remove(botFolder).catch(() => {});
+    }
+    
+    // Message d'erreur
+    try {
+      await bot.telegram.editMessageText(
+        chatId, 
+        messageId, 
+        null,
+        `❌ Erreur lors du déploiement: ${error.message}\n\nConsultez les logs pour plus de détails.`
+      );
+    } catch (editError) {
+      // Si le message a été supprimé ou autre erreur, envoyer un nouveau message
+      await bot.telegram.sendMessage(
+        chatId,
+        `❌ Erreur lors du déploiement: ${error.message}\n\nConsultez les logs pour plus de détails.`
+      );
+    }
   }
 }
 
@@ -215,7 +281,6 @@ async function restartBot(botId, ctx) {
         }
 
         // Redémarrer le bot
-        const logFile = path.join(LOGS_DIR, `${row.name}.log`);
         const child = spawn('npm', ['start'], {
           cwd: row.folder,
           env: { ...process.env, BOT_TOKEN: row.token },
@@ -224,7 +289,7 @@ async function restartBot(botId, ctx) {
         });
 
         // Rediriger les logs
-        const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+        const logStream = fs.createWriteStream(row.log_file, { flags: 'a' });
         child.stdout.pipe(logStream);
         child.stderr.pipe(logStream);
 
@@ -362,7 +427,9 @@ bot.command('newbot', async (ctx) => {
   }
   
   const result = await createNewBot(token, ctx);
-  ctx.reply(result.message);
+  if (result.message) {
+    ctx.reply(result.message);
+  }
 });
 
 bot.command('mybots', async (ctx) => {
