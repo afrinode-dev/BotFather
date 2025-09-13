@@ -866,7 +866,7 @@ bot.on('text', async (ctx) => {
       } else if (!ctx.session.botConfig.buildCommand) {
         // Cinquième message: la commande de build
         ctx.session.botConfig.buildCommand = text || 'npm install';
-        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables d\'environnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
+        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables denvironnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
       } else if (ctx.session.botConfig.envVars === undefined) {
         // Sixième message: les variables d'environnement
         ctx.session.botConfig.envVars = text;
@@ -901,7 +901,7 @@ bot.on('text', async (ctx) => {
       } else if (!ctx.session.botConfig.buildCommand) {
         // Quatrième message: la commande de build
         ctx.session.botConfig.buildCommand = text || 'npm install';
-        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables d'environnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
+        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables denvironnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
       } else if (ctx.session.botConfig.envVars === undefined) {
         // Cinquième message: les variables d'environnement
         ctx.session.botConfig.envVars = text;
