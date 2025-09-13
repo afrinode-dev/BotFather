@@ -1,7 +1,7 @@
 {
   "name": "universal-bot-deployer",
-  "version": "3.0.0",
-  "description": "Bot déployeur universel pour bots Telegram et WhatsApp",
+  "version": "3.1.0",
+  "description": "Bot déployeur universel pour bots Telegram et WhatsApp - Version Corrigée",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,7 @@
     "automation",
     "manager"
   ],
-  "author": "afrinode-dev",
+  "author": "Votre nom",
   "license": "MIT",
   "dependencies": {
     "telegraf": "^4.16.3",
