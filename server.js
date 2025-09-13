@@ -566,7 +566,7 @@ async function safeEditMessage(ctx, text, keyboard = null) {
       }
     }
   } catch (error) {
-    console.error('Erreur lors de l'édition du message:', error.message);
+    console.error('Erreur lors de lédition du message:', error.message);
     // En cas d'erreur, envoyer un nouveau message
     return await ctx.reply(text, keyboard ? Markup.inlineKeyboard(keyboard) : undefined);
   }
