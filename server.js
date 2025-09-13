@@ -1,4 +1,4 @@
-// server.js - Bot Déployeur Universel Avancé
+// server.js - Bot Déployeur Universel Corrigé
 const { Telegraf, Markup, session } = require('telegraf');
 const fs = require('fs-extra');
 const path = require('path');
@@ -59,8 +59,13 @@ db.serialize(() => {
 // Initialisation du bot manager
 const bot = new Telegraf(MANAGER_TOKEN);
 
-// Middleware de session
-bot.use(session());
+// Configuration de la session
+bot.use(session({
+  defaultSession: () => ({
+    botType: null,
+    botConfig: {}
+  })
+}));
 
 // Serveur web pour Render
 const app = express();
@@ -88,13 +93,6 @@ app.get('/status/:botId', async (req, res) => {
       bot_type: row.bot_type
     });
   });
-});
-
-// Endpoint pour les webhooks (si nécessaire)
-app.post('/webhook/:botId', express.json(), (req, res) => {
-  const botId = req.params.botId;
-  // Traiter le webhook selon le type de bot
-  res.sendStatus(200);
 });
 
 app.listen(PORT, () => {
@@ -568,7 +566,7 @@ async function safeEditMessage(ctx, text, keyboard = null) {
       }
     }
   } catch (error) {
-    console.error('Erreur lors de l\'édition du message:', error.message);
+    console.error('Erreur lors de l'édition du message:', error.message);
     // En cas d'erreur, envoyer un nouveau message
     return await ctx.reply(text, keyboard ? Markup.inlineKeyboard(keyboard) : undefined);
   }
@@ -576,7 +574,7 @@ async function safeEditMessage(ctx, text, keyboard = null) {
 
 // Commandes du bot
 bot.command('start', async (ctx) => {
-  const welcomeText = `🤖 *Bot Déployeur Universel Avancé* 🤖\n\n` +
+  const welcomeText = `🤖 *Bot Déployeur* 🤖\n\n` +
     `Je peux vous aider à déployer et gérer vos bots Telegram et WhatsApp automatiquement.\n\n` +
     `*Commandes disponibles:*\n` +
     `/newbot - Déployer une nouvelle instance\n` +
@@ -618,7 +616,6 @@ bot.command('start', async (ctx) => {
 bot.command('newbot', async (ctx) => {
   // Mode interactif pour créer un nouveau bot
   const chatId = ctx.chat.id;
-  const messageId = ctx.message.message_id;
   
   // Demander le type de bot
   await ctx.reply('🤖 Quel type de bot souhaitez-vous déployer?', Markup.inlineKeyboard([
@@ -761,6 +758,14 @@ bot.action('deploy_bot', async (ctx) => {
 bot.action('deploy_telegram', async (ctx) => {
   await ctx.answerCbQuery();
   
+  // Initialiser la session si nécessaire
+  if (!ctx.session) {
+    ctx.session = {
+      botType: null,
+      botConfig: {}
+    };
+  }
+  
   // Stocker le type de bot dans la session
   ctx.session.botType = 'telegram';
   
@@ -774,6 +779,14 @@ bot.action('deploy_telegram', async (ctx) => {
 
 bot.action('deploy_whatsapp', async (ctx) => {
   await ctx.answerCbQuery();
+  
+  // Initialiser la session si nécessaire
+  if (!ctx.session) {
+    ctx.session = {
+      botType: null,
+      botConfig: {}
+    };
+  }
   
   // Stocker le type de bot dans la session
   ctx.session.botType = 'whatsapp';
@@ -796,6 +809,14 @@ bot.action('deploy_whatsapp', async (ctx) => {
 bot.action('use_default_whatsapp', async (ctx) => {
   await ctx.answerCbQuery();
   
+  // Initialiser la session si nécessaire
+  if (!ctx.session) {
+    ctx.session = {
+      botType: null,
+      botConfig: {}
+    };
+  }
+  
   // Utiliser le template par défaut pour WhatsApp
   ctx.session.botConfig.repoUrl = DEFAULT_WHATSAPP_REPO;
   
@@ -807,19 +828,22 @@ bot.action('use_default_whatsapp', async (ctx) => {
 // Gestion des messages pour la configuration interactive
 bot.on('text', async (ctx) => {
   // Vérifier si nous sommes en mode configuration de bot
-  if (ctx.session.botType) {
+  if (ctx.session && ctx.session.botType) {
     const text = ctx.message.text;
     
+    // Initialiser la configuration si nécessaire
+    if (!ctx.session.botConfig) {
+      ctx.session.botConfig = {};
+    }
+    
     if (ctx.session.botType === 'telegram') {
-      if (!ctx.session.botConfig) {
+      if (!ctx.session.botConfig.token) {
         // Premier message: le token
-        ctx.session.botConfig = {
-          token: text,
-          repoUrl: DEFAULT_TELEGRAM_REPO,
-          branch: 'main',
-          startCommand: 'npm start',
-          buildCommand: 'npm install'
-        };
+        ctx.session.botConfig.token = text;
+        ctx.session.botConfig.repoUrl = DEFAULT_TELEGRAM_REPO;
+        ctx.session.botConfig.branch = 'main';
+        ctx.session.botConfig.startCommand = 'npm start';
+        ctx.session.botConfig.buildCommand = 'npm install';
         
         await ctx.reply('✅ Token reçu. Veuillez maintenant envoyer l\'URL du repository GitHub (ou appuyez sur /default pour utiliser le template par défaut).');
       } else if (!ctx.session.botConfig.repoUrl) {
@@ -843,7 +867,7 @@ bot.on('text', async (ctx) => {
         // Cinquième message: la commande de build
         ctx.session.botConfig.buildCommand = text || 'npm install';
         await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables d\'environnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
-      } else if (!ctx.session.botConfig.envVars) {
+      } else if (ctx.session.botConfig.envVars === undefined) {
         // Sixième message: les variables d'environnement
         ctx.session.botConfig.envVars = text;
         
@@ -877,8 +901,8 @@ bot.on('text', async (ctx) => {
       } else if (!ctx.session.botConfig.buildCommand) {
         // Quatrième message: la commande de build
         ctx.session.botConfig.buildCommand = text || 'npm install';
-        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables d\'environnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
-      } else if (!ctx.session.botConfig.envVars) {
+        await ctx.reply('✅ Commande de build reçue. Souhaitez-vous ajouter des variables d'environnement supplémentaires? (Format: KEY1=VALUE1,KEY2=VALUE2)');
+      } else if (ctx.session.botConfig.envVars === undefined) {
         // Cinquième message: les variables d'environnement
         ctx.session.botConfig.envVars = text;
         
@@ -902,6 +926,12 @@ bot.on('text', async (ctx) => {
 bot.action('confirm_deployment', async (ctx) => {
   await ctx.answerCbQuery();
   
+  // Vérifier que la session est initialisée
+  if (!ctx.session || !ctx.session.botType || !ctx.session.botConfig) {
+    await ctx.reply('❌ Erreur: Session de configuration invalide. Veuillez recommencer.');
+    return;
+  }
+  
   const { botType, botConfig } = ctx.session;
   
   try {
@@ -922,7 +952,10 @@ bot.action('confirm_deployment', async (ctx) => {
     }
     
     // Réinitialiser la session
-    ctx.session = {};
+    ctx.session = {
+      botType: null,
+      botConfig: {}
+    };
   } catch (error) {
     await ctx.reply(`❌ Erreur lors du démarrage du déploiement: ${error.message}`);
   }
@@ -932,7 +965,10 @@ bot.action('cancel_deployment', async (ctx) => {
   await ctx.answerCbQuery();
   
   // Réinitialiser la session
-  ctx.session = {};
+  ctx.session = {
+    botType: null,
+    botConfig: {}
+  };
   
   await ctx.reply('❌ Déploiement annulé.');
 });
